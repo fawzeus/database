@@ -1,5 +1,8 @@
 #include "repl.hpp"
 #include <iostream>
+#include "metacommand.hpp"
+#include "sqlstatement.hpp"
+#include "utils.hpp"
 namespace repl
 {
     void printPrompt() {
@@ -16,9 +19,28 @@ namespace repl
     void loop() {
         std::string command;
         while (true) {
+            Sqlstatement statement;
             printPrompt();
             std::getline(std::cin, command);
-            handleCommand(command);
+            if (command[0] == '.') {
+                switch (handleMetaCommand(command))
+                {
+                case errorId_t::ERR_STATUS_OK:
+                    continue;                
+                default:
+                    std::cout<<"Unrecognized command "<<command<<"\n";
+                    continue;
+                }
+            }
+            switch (statement.prepareStatement(command)) {
+                case errorId_t::ERR_STATUS_OK:
+                    break;
+                default:
+                    std::cout<<"Unrecognized keyword at start of "<<command<<"\n";
+                    continue;;
+            }
+            statement.excuteCommand();
+            std::cout<<"COMMAND EXECUTED!"<<"\n";
         }
     }
     

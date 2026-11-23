@@ -1,0 +1,33 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/app/include",
+                "${workspaceFolder}/common/include",
+                "${workspaceFolder}/core/include",
+                "${workspaceFolder}/sql/include",
+                "${workspaceFolder}/catalog/include",
+                "${workspaceFolder}/data/include",
+                "${workspaceFolder}/storage/include",
+                "${workspaceFolder}/index/include",
+                "${workspaceFolder}/engine/include",
+                "${workspaceFolder}/app/src",
+                "${workspaceFolder}/common/src",
+                "${workspaceFolder}/core/src",
+                "${workspaceFolder}/sql/src",
+                "${workspaceFolder}/catalog/src",
+                "${workspaceFolder}/data/src",
+                "${workspaceFolder}/storage/src",
+                "${workspaceFolder}/index/src",
+                "${workspaceFolder}/engine/src"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

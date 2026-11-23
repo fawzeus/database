@@ -1,13 +1,19 @@
-# Build directory
+# Build output (single root build/ dir, plus any per-module build dirs)
 build/
+**/build/
 
-# Object files
+# Object files (any module)
 *.o
 *.obj
 
 # Executables
 *.exe
 *.out
+database
+
+# Crash dumps
+core
+core.*
 
 # IDE files
 .vscode/settings.json
@@ -16,3 +22,7 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local docs (do not commit)
+plan.md
+guide.md

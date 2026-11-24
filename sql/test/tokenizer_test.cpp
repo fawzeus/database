@@ -17,29 +17,109 @@ int failures = 0;
 #define STRINGIFY2(x) #x
 #define STRINGIFY(x) STRINGIFY2(x)
 
-// Capture the caller's file/line/function when lex()/expectLex() is invoked,
-// so a failing helper check points at the test line that caused it, not at the
-// generic helper body below.
+// Capture the caller's file/line/function when lex()/expectLex() is invoked.
 #define HERE_LOC __FILE__ ":" STRINGIFY(__LINE__)
 #define HERE_FN  __func__
+
+#define FAIL_AT(where, fn, msg)                                                 \
+    do {                                                                        \
+        std::cerr << "tokenizer_test: FAIL " << where << " in " << fn          \
+                  << ": " << msg << '\n';                                      \
+        ++failures;                                                             \
+    } while (false)
 
 #define CHECK_AT(cond, where, fn)                                               \
     do {                                                                        \
         if (!(cond)) {                                                          \
-            std::cerr << "tokenizer_test: FAIL " << where << " in " << fn      \
-                      << ": " #cond << '\n';                                   \
-            ++failures;                                                         \
+            FAIL_AT(where, fn, #cond);                                          \
         }                                                                       \
     } while (false)
 
 #define CHECK(cond) CHECK_AT(cond, HERE_LOC, HERE_FN)
+
+std::string printable(const std::string& text) {
+    std::string out;
+    for (char ch : text) {
+        if (ch == '\n') {
+            out += "\\n";
+        } else if (ch == '\t') {
+            out += "\\t";
+        } else {
+            out += ch;
+        }
+    }
+    return out;
+}
+
+const char* tokenTypeName(TokenType type) {
+    switch (type) {
+    case TokenType::Integer: return "Integer";
+    case TokenType::Float: return "Float";
+    case TokenType::String: return "String";
+    case TokenType::Blob: return "Blob";
+    case TokenType::Null: return "Null";
+    case TokenType::Identifier: return "Identifier";
+    case TokenType::Select: return "Select";
+    case TokenType::From: return "From";
+    case TokenType::Where: return "Where";
+    case TokenType::Insert: return "Insert";
+    case TokenType::Into: return "Into";
+    case TokenType::Values: return "Values";
+    case TokenType::Create: return "Create";
+    case TokenType::Table: return "Table";
+    case TokenType::Primary: return "Primary";
+    case TokenType::Key: return "Key";
+    case TokenType::Not: return "Not";
+    case TokenType::And: return "And";
+    case TokenType::Or: return "Or";
+    case TokenType::KwInteger: return "KwInteger";
+    case TokenType::KwText: return "KwText";
+    case TokenType::KwReal: return "KwReal";
+    case TokenType::KwBlob: return "KwBlob";
+    case TokenType::Plus: return "Plus";
+    case TokenType::Minus: return "Minus";
+    case TokenType::Star: return "Star";
+    case TokenType::Slash: return "Slash";
+    case TokenType::Percent: return "Percent";
+    case TokenType::Eq: return "Eq";
+    case TokenType::NotEq: return "NotEq";
+    case TokenType::Lt: return "Lt";
+    case TokenType::LtEq: return "LtEq";
+    case TokenType::Gt: return "Gt";
+    case TokenType::GtEq: return "GtEq";
+    case TokenType::Concat: return "Concat";
+    case TokenType::LParen: return "LParen";
+    case TokenType::RParen: return "RParen";
+    case TokenType::Comma: return "Comma";
+    case TokenType::Semicolon: return "Semicolon";
+    case TokenType::Dot: return "Dot";
+    case TokenType::Parameter: return "Parameter";
+    case TokenType::EndOfFile: return "EndOfFile";
+    case TokenType::Error: return "Error";
+    }
+    return "Unknown";
+}
+
+const char* statusName(errorId_t status) {
+    switch (status) {
+    case errorId_t::ERR_STATUS_OK: return "ERR_STATUS_OK";
+    case errorId_t::ERR_TOKINIZER_NOT_EMPTY: return "ERR_TOKINIZER_NOT_EMPTY";
+    case errorId_t::ERR_TOKINIZER_INVALID_ENTRY:
+        return "ERR_TOKINIZER_INVALID_ENTRY";
+    default: return "unexpected error status";
+    }
+}
 
 using Expected = std::pair<TokenType, const char*>;
 
 std::vector<Token> lex_at(const std::string& input,
                           const char* where, const char* fn) {
     std::vector<Token> tokens;
-    CHECK_AT(tokenize(input, tokens) == errorId_t::ERR_STATUS_OK, where, fn);
+    const errorId_t status = tokenize(input, tokens);
+    if (status != errorId_t::ERR_STATUS_OK) {
+        FAIL_AT(where, fn, "input \"" + printable(input) + "\": tokenize returned " +
+                               statusName(status));
+    }
     return tokens;
 }
 
@@ -50,15 +130,42 @@ void expectLex_at(const std::string& input,
                   std::initializer_list<Expected> expected,
                   const char* where, const char* fn) {
     const std::vector<Token> tokens = lex_at(input, where, fn);
-    CHECK_AT(tokens.size() == expected.size() + 1, where, fn);
+
+    if (tokens.size() != expected.size() + 1) {
+        FAIL_AT(where, fn, "input \"" + printable(input) + "\": got " +
+                               std::to_string(tokens.size()) +
+                               " token(s), expected " +
+                               std::to_string(expected.size() + 1) +
+                               " including EOF");
+    }
 
     const size_t n = std::min(tokens.size(), expected.size());
     for (size_t i = 0; i < n; ++i) {
-        CHECK_AT(tokens[i].type == expected.begin()[i].first, where, fn);
-        CHECK_AT(tokens[i].text == expected.begin()[i].second, where, fn);
+        if (tokens[i].type != expected.begin()[i].first) {
+            FAIL_AT(where, fn,
+                    "input \"" + printable(input) + "\": token " + std::to_string(i) +
+                        " type: expected " +
+                        tokenTypeName(expected.begin()[i].first) + ", got " +
+                        tokenTypeName(tokens[i].type) + " (text \"" +
+                        tokens[i].text + "\" at " +
+                        std::to_string(tokens[i].line) + ":" +
+                        std::to_string(tokens[i].col) + ")");
+        }
+        if (tokens[i].text != std::string(expected.begin()[i].second)) {
+            FAIL_AT(where, fn,
+                    "input \"" + printable(input) + "\": token " + std::to_string(i) +
+                        " text: expected \"" +
+                        std::string(expected.begin()[i].second) +
+                        "\", got \"" + tokens[i].text + "\"");
+        }
     }
-    if (!tokens.empty()) {
-        CHECK_AT(tokens.back().type == TokenType::EndOfFile, where, fn);
+
+    if (!tokens.empty() && tokens.back().type != TokenType::EndOfFile) {
+        FAIL_AT(where, fn,
+                "input \"" + printable(input) +
+                    "\": last token should be EndOfFile, got " +
+                    tokenTypeName(tokens.back().type) + " (text \"" +
+                    tokens.back().text + "\")");
     }
 }
 

@@ -25,7 +25,8 @@ errorId_t tokenize(const std::string& input, std::vector<Token>& tokens) {
             }
             i++;  // skip whitespaces
             continue;
-        } else if(c == '.'){
+        } else if (c == '.' && i + 1 < input.size() &&
+                   isdigit((unsigned char)input[i + 1])) {
             size_t start = i;
             i++;
             while(i < input.size() && isdigit((unsigned char) input[i])) {
@@ -60,12 +61,27 @@ errorId_t tokenize(const std::string& input, std::vector<Token>& tokens) {
 
             // malformed number: glued to a letter, '_' or a second '.'
             if (i < input.size() &&
-                (isalpha((unsigned char)input[i]) || input[i] == '_' ||
+                ((isalpha((unsigned char)input[i]) && input[i] != 'e') || input[i] == '_' ||
                  input[i] == '.')) {
                 token.type = TokenType::Error;
                 token.text = "malformed number: " +
                              input.substr(start, i - start + 1);
                 status = errorId_t::ERR_TOKINIZER_INVALID_ENTRY;
+            } else if (i < input.size() && input[i] == 'e') {
+                token.type = TokenType::Float;
+                i++;
+                while (i < input.size() && isdigit((unsigned char)input[i])) {
+                    i++;
+                }
+
+                if (i < input.size() && input[i] == '.') {
+                    i++;
+                    while (i < input.size() && isdigit((unsigned char)input[i])) {
+                        i++;
+                    }
+                }
+                token.text = input.substr(start, i - start);
+
             }
         } else if (c != '\0' && strchr("+-*/%=<>!|", c)) {
             char next = (i + 1 < input.size()) ? input[i + 1] : '\0';
@@ -159,6 +175,34 @@ errorId_t tokenize(const std::string& input, std::vector<Token>& tokens) {
                 token.type = TokenType::Error;
                 status = errorId_t::ERR_TOKINIZER_INVALID_ENTRY;
                 break;
+            }
+        } else if (c == '\'') {
+            std::string text;
+            bool closed = false;
+            i++;  // opening quote
+
+            while (i < input.size()) {
+                if (input[i] == '\'') {
+                    if (i + 1 < input.size() && input[i + 1] == '\'') {
+                        text += '\'';
+                        i += 2;
+                    } else {
+                        i++;  // closing quote
+                        closed = true;
+                        break;
+                    }
+                } else {
+                    text += input[i++];
+                }
+            }
+
+            if (closed) {
+                token.type = TokenType::String;
+                token.text = text;
+            } else {
+                token.type = TokenType::Error;
+                token.text = "unterminated string literal";
+                status = errorId_t::ERR_TOKINIZER_INVALID_ENTRY;
             }
         } else if (isalpha(c) || c == '_') {
             size_t start = i;
